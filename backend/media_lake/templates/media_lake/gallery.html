@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Media Gallery</h1>
+<ul>
+  {% for media in media_files %}
+  <li>
+    <img src="{{ media.thumbnail_url }}" alt="{{ media.name }}"/>
+    <p>{{ media.metadata }}</p>
+  </li>
+  {% empty %}
+  <li>No media files found.</li>
+  {% endfor %}
+</ul>
+{% endblock %}
