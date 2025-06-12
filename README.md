@@ -1,12 +1,29 @@
-# backup-device
-python (django) project to copy (and manage) media files from any device (mobiles, usb-drives) etc...
+# Backup Device
 
-## Environment variables
+This repository contains scripts and a Django backend used to back up media from a phone.
 
-The project uses [`python-dotenv`](https://pypi.org/project/python-dotenv/) to load environment variables from a `.env` file. The following line is included near the top of the main entry points:
+## Usage
 
-```python
-from dotenv import load_dotenv; load_dotenv()
+The `setup.sh` script provides a unified command line interface:
+
+```bash
+./setup.sh create [--db-path=/absolute/host/path]
 ```
 
-This code is present in `manage.py`, `config/wsgi.py`, and `config/asgi.py`. Ensure a `.env` file exists before starting the application so that these environment variables are available.
+Scaffolds the Django project inside `backend/`. Pass `--db-path` to bind mount an existing directory for PostgreSQL data.
+The scaffold also adds a basic Ninja API and a gallery view.
+
+```bash
+./setup.sh attach-phone
+```
+
+Lists USB devices from Windows, attaches the selected one to WSL and starts the Docker stack. The phone will be paired and mounted inside the `web` container.
+
+```bash
+./setup.sh cleanup
+```
+
+Stops and removes the Docker containers and volumes.
+
+The legacy scripts (`create_backup_device.sh` and `attach_phone_and_run.sh`) remain, but using `setup.sh` is recommended.
+
