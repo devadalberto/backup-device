@@ -26,3 +26,4 @@ Lists USB devices from Windows, attaches the selected one to WSL and starts the 
 Stops and removes the Docker containers and volumes.
 
 The legacy scripts (`create_backup_device.sh` and `attach_phone_and_run.sh`) remain, but using `setup.sh` is recommended.
+
