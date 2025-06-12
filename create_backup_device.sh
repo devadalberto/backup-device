@@ -94,6 +94,124 @@ django-admin startproject config .
 python manage.py startapp media_lake
 python manage.py startapp backup_device
 
+cat > backup_device/models.py <<'PY'
+from django.db import models
+
+
+class Device(models.Model):
+    """Simple device representation."""
+
+    name = models.CharField(max_length=100)
+    created = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:  # pragma: no cover - simple representation
+        return self.name
+PY
+
+cat > media_lake/models.py <<'PY'
+from backup_device.models import Device
+from django.db import models
+
+
+class MediaFile(models.Model):
+    """File stored in the media lake."""
+
+    device = models.ForeignKey(
+        Device, on_delete=models.CASCADE, related_name="media_files"
+    )
+    file = models.FileField(upload_to="uploads/")
+    uploaded = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:  # pragma: no cover - simple representation
+        return self.file.name
+PY
+
+cat > media_lake/views.py <<'PY'
+from django.shortcuts import render
+
+from .models import MediaFile
+
+
+def gallery(request):
+    """Display thumbnails and metadata for all ``MediaFile`` instances."""
+
+    media_files = MediaFile.objects.all()
+    return render(request, "media_lake/gallery.html", {"media_files": media_files})
+PY
+
+mkdir -p media_lake/templates/media_lake
+cat > media_lake/templates/media_lake/gallery.html <<'HTML'
+{% extends 'base.html' %}
+{% block content %}
+<h1>Media Gallery</h1>
+<ul>
+  {% for media in media_files %}
+  <li>
+    <img src="{{ media.thumbnail_url }}" alt="{{ media.name }}"/>
+    <p>{{ media.metadata }}</p>
+  </li>
+  {% empty %}
+  <li>No media files found.</li>
+  {% endfor %}
+</ul>
+{% endblock %}
+HTML
+
+cat > api.py <<'PY'
+from typing import List
+
+from backup_device.models import Device
+from django.shortcuts import get_object_or_404
+from media_lake.models import MediaFile
+from ninja import File, ModelSchema, NinjaAPI
+from ninja.files import UploadedFile
+
+
+class DeviceSchema(ModelSchema):
+    class Config:
+        model = Device
+        model_fields = ["id", "name", "created"]
+
+
+class DeviceCreateSchema(ModelSchema):
+    class Config:
+        model = Device
+        model_fields = ["name"]
+
+
+class MediaFileSchema(ModelSchema):
+    class Config:
+        model = MediaFile
+        model_fields = ["id", "device_id", "file", "uploaded"]
+
+
+api = NinjaAPI()
+
+
+@api.get("/devices/", response=List[DeviceSchema])
+def list_devices(request):
+    return Device.objects.all()
+
+
+@api.post("/devices/", response=DeviceSchema)
+def create_device(request, payload: DeviceCreateSchema):
+    device = Device.objects.create(**payload.dict())
+    return device
+
+
+@api.get("/media/", response=List[MediaFileSchema])
+def list_media(request):
+    return MediaFile.objects.all()
+
+
+@api.post("/media/", response=MediaFileSchema)
+def upload_media(request, device_id: int, file: UploadedFile = File(...)):
+    device = get_object_or_404(Device, id=device_id)
+    media = MediaFile.objects.create(device=device, file=file)
+    return media
+PY
+
+
 # Add the two apps to INSTALLED_APPS
 python - <<'PY'
 import re, pathlib, sys, textwrap, json, os
@@ -131,7 +249,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'whitenoise.runserver_nostatic',
     'django_ninja',
-    'django_taggit',
+    'taggit',
     'media_lake',
     'backup_device',
 ]
@@ -196,24 +314,33 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 BACKUP_DEST = os.getenv('BACKUP_DEST', '/backups')
+
+# Configure default primary key field type to avoid warnings
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 PY
 
 # ---------- health check view ---------------------
 mkdir -p config/views
 cat > config/views/health.py <<'PY'
 from django.http import JsonResponse
-def health_check(request):
+
+
+async def health_check(request):
     return JsonResponse({"status": "ok", "service": "backup_device"})
 PY
 
 cat > config/urls.py <<'PY'
+from api import api
+from config.views.health import health_check
 from django.contrib import admin
 from django.urls import path
-from config.views.health import health_check
+from media_lake.views import gallery
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('health/', health_check, name='health_check'),
+    path("admin/", admin.site.urls),
+    path("health/", health_check, name="health_check"),
+    path("gallery/", gallery, name="gallery"),
+    path("api/", api.urls),
 ]
 PY
 
@@ -332,6 +459,18 @@ networks:
   backend:
     driver: bridge
 EOF
+
+cat > docker-compose.override.yml <<'YML'
+# docker-compose.override.yml
+services:
+  web:
+    privileged: true            # allow FUSE & raw USB
+    devices:
+      - "/dev/bus/usb:/dev/bus/usb"
+    cap_add:
+      - SYS_ADMIN               # needed by ifuse
+      - SYS_RAWIO
+YML
 
 # ---------- Makefile ------------------------------
 cat > Makefile <<'MAKE'

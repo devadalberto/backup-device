@@ -19,7 +19,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "whitenoise.runserver_nostatic",
     "django_ninja",
-    "django_taggit",
+    "taggit",
     "media_lake",
     "backup_device",
 ]
@@ -86,3 +86,6 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 BACKUP_DEST = os.getenv("BACKUP_DEST", "/backups")
+
+# Configure default primary key field type to avoid warnings
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
