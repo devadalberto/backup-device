@@ -1,0 +1,8 @@
+django==4.2.11
+gunicorn==21.2.0
+whitenoise[brotli]==6.6.0
+django-ninja==0.22.2
+django-taggit==4.0.0
+python-dotenv==1.0.1
+psycopg2-binary==2.9.9
+tqdm==4.66.2

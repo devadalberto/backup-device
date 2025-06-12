@@ -1,0 +1,9 @@
+# docker-compose.override.yml
+services:
+  web:
+    privileged: true            # allow FUSE & raw USB
+    devices:
+      - "/dev/bus/usb:/dev/bus/usb"
+    cap_add:
+      - SYS_ADMIN               # needed by ifuse
+      - SYS_RAWIO

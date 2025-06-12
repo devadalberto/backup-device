@@ -1,0 +1,2 @@
+# always use LF inside repo so Black stays happy
+*.py text eol=lf
