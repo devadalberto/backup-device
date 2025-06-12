@@ -1,5 +1,5 @@
 from django.http import JsonResponse
 
 
-def health_check(request):
+async def health_check(request):
     return JsonResponse({"status": "ok", "service": "backup_device"})
